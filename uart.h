@@ -25,4 +25,5 @@ void uart_fill_rx_packet_buffer(uint8_t *buffer, uint8_t bufferSize, uint8_t *bu
 void uart_init (void);
 void putbyte(uint8_t c);
 
+int uart_getch(void);
 #endif /* _UART_H */

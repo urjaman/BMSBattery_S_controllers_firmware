@@ -48,6 +48,13 @@ uint8_t uart_get_buffered(void) {
     }
     return c;
 }
+
+int uart_getch(void) {
+	if (byte_avail_at_position() != UART_EMPTY_INDICATOR) 
+		return uart_get_buffered();
+	return -1;
+}
+
 // FIXME only needed as long as the other displays do not use new functions
 // and instead have their own irq handler
 
