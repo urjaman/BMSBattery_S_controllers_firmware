@@ -257,7 +257,7 @@ uint16_t aca_setpoint(uint16_t ui16_time_ticks_between_pas_interrupt, uint16_t s
 		if (((ui16_aca_flags & TQ_SENSOR_MODE) != TQ_SENSOR_MODE)) {
 			if (ui8_speedlimit_kph > 1){
 				// do not apply throttle at very low speed limits (technical restriction, speelimit can and should never be lover than 1)
-				float_temp = (float) ui16_sum_throttle;
+				float_temp = (float) ui16_momentary_throttle;
 			}
 		} else {
 			float_temp = (float) ui16_momentary_throttle; // or ui16_sum_throttle
