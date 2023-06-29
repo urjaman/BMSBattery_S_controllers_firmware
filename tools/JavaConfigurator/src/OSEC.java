@@ -1357,8 +1357,26 @@ public class OSEC extends JFrame {
 
 					}
 				}
+				String command;
+				if (System.getProperty("os.name").toLowerCase().contains("win")) {
+					command = "cmd /c start Start_Compiling";
+				} else {
+					// Use the environment variable if you want to set
+					// a custom term on a random linux distro.
+					String terminal = System.getenv("TERMINAL");
+					if (terminal == null) {
+						File tf = new File("/usr/bin/x-terminal-emulator");
+						if (tf.exists()) {
+							terminal = "x-terminal-emulator";
+						} else {
+							terminal = "xterm";
+						}
+					}
+					command = terminal + " -e ./apply_config.sh";
+				}
+
 				try {
-					Process process = Runtime.getRuntime().exec("cmd /c start Start_Compiling");
+					Process process = Runtime.getRuntime().exec(command);
 				} catch (IOException e1) {
 					txtThrottlemin.setText("Error");
 					e1.printStackTrace();
