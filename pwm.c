@@ -30,6 +30,8 @@ uint8_t ui8_value_new_B;
 uint8_t ui8_value_new_C;
 uint16_t ui16_value;
 
+uint8_t pwm_swap_phases_ac = 0;
+
 void pwm_set_duty_cycle(uint8_t value) {
 	ui8_duty_cycle_target = value;
 }
@@ -217,9 +219,21 @@ void pwm_apply_duty_cycle(uint8_t ui8_duty_cycle_value) {
 	}
 
 	// set final duty_cycle value
-	TIM1_SetCompare1((uint16_t) (ui8_value_new_C << 1));
-	TIM1_SetCompare2((uint16_t) (ui8_value_new_B << 1));
-	TIM1_SetCompare3((uint16_t) (ui8_value_new_A << 1));
+#ifdef DIAGNOSTICS
+	if (pwm_swap_phases_ac) {
+		TIM1_SetCompare3((uint16_t) (ui8_value_new_C << 1));
+		TIM1_SetCompare2((uint16_t) (ui8_value_new_B << 1));
+		TIM1_SetCompare1((uint16_t) (ui8_value_new_A << 1));
+	} else {
+#endif
+		TIM1_SetCompare1((uint16_t) (ui8_value_new_C << 1));
+		TIM1_SetCompare2((uint16_t) (ui8_value_new_B << 1));
+		TIM1_SetCompare3((uint16_t) (ui8_value_new_A << 1));
+
+#ifdef DIAGNOSTICS
+	}
+#endif
+
 #elif (SVM_TABLE == SINE) || (SVM_TABLE == SINE_SVM_ORIGINAL)
 	// scale and apply _duty_cycle
 	ui8_value_a = fetch_table_value(ui8_sinetable_position);

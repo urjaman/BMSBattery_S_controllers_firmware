@@ -19,6 +19,7 @@
 #define SVM_TABLE SVM
 
 extern uint8_t ui8_duty_cycle_target;
+extern uint8_t pwm_swap_phases_ac;
 
 void pwm_init (void);
 void pwm_duty_cycle_controller (void);
