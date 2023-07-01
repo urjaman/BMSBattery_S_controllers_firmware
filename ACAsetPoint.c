@@ -165,7 +165,8 @@ uint16_t aca_setpoint(uint16_t ui16_time_ticks_between_pas_interrupt, uint16_t s
 		//Current target based on regen assist level
 		if ((ui16_aca_flags & DIGITAL_REGEN) == DIGITAL_REGEN) {
 
-			ui8_temp = ui8_a_s_assistlevels[ui8_assistlevel_global >> 4];
+			//ui8_temp = ui8_a_s_assistlevels[ui8_assistlevel_global >> 4];
+			ui8_temp = 100.0;
 			controll_state_temp -= 1;
 
 			//Current target based on linear input on pad X4
@@ -200,7 +201,10 @@ uint16_t aca_setpoint(uint16_t ui16_time_ticks_between_pas_interrupt, uint16_t s
 			ui32_dutycycle = ui16_virtual_erps_speed * 2;
 			controll_state_temp -= 8;
 		}
-		
+		if (ui16_virtual_erps_speed < 15) {
+			ui32_dutycycle = 0;
+			PI_control_jump(0);
+		}
 	} else {
 
 		uint32_current_target = ui16_current_cal_b; // reset target to zero
