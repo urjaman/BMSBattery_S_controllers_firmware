@@ -41,9 +41,12 @@ uint16_t ui16_adc_current_phase_B_filtered = 0;
 
 int8_t hall_sensors;
 int8_t hall_sensors_last = 0;
+int8_t hall_sensors_last_raw = 0;
 
 uint16_t ui16_ADC_iq_current_accumulated = 4096;
 uint16_t ui16_iq_current_ma = 0;
+
+#define HALL_REMAP(x) ((x&1) | ((x&2)<<1) | ((x&4) >> 1))
 
 void TIM1_UPD_OVF_TRG_BRK_IRQHandler(void) __interrupt(TIM1_UPD_OVF_TRG_BRK_IRQHANDLER) {
 	adc_trigger();
@@ -65,20 +68,22 @@ void hall_sensor_init(void) {
 void hall_sensors_read_and_action(void) {
 	// read hall sensors signal pins and mask other pins
 	hall_sensors = (GPIO_ReadInputData(HALL_SENSORS__PORT) & (HALL_SENSORS_MASK));
-	if ((hall_sensors != hall_sensors_last) || (ui8_possible_motor_state == MOTOR_STATE_COAST)) // let's run the code when motor is stopped/coast so it can pick right motor position for correct startup
+	if ((hall_sensors != hall_sensors_last_raw) || (ui8_possible_motor_state == MOTOR_STATE_COAST)) // let's run the code when motor is stopped/coast so it can pick right motor position for correct startup
 	{
+		hall_sensors_last_raw = hall_sensors;
+		hall_sensors = HALL_REMAP(hall_sensors);
+		
 		if (hall_sensors_last >0 && hall_sensors_last < 7) {
 			uint8_t_60deg_pwm_cycles[hall_sensors_last-1] = ui16_PWM_cycles_counter_6;
 		}
 		updateHallOrder(hall_sensors);
+		hall_sensors_last = hall_sensors;
 
 		//printf("hall change! %d, %d \n", hall_sensors, hall_sensors_last );
-		hall_sensors_last = hall_sensors;
 
 		if (ui8_possible_motor_state == MOTOR_STATE_COAST) {
 			ui8_possible_motor_state = MOTOR_STATE_RUNNING_NO_INTERPOLATION;
 		}
-
 
 		switch (hall_sensors) {
 			case 3://rotor position 180 degree
