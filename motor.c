@@ -154,6 +154,11 @@ void hall_sensors_read_and_action(void) {
 	}
 }
 
+#define USE_FIELD_WEAKENING
+#define FIELD_WEAK_MIN_SPEED 90
+#define FIELD_WEAK_MAX_CURR 40
+#define FIELD_WEAK_MAX_ANGLE 15
+
 void updateCorrection() {
 
 	if (ui8_duty_cycle_target > 5) {
@@ -166,11 +171,37 @@ void updateCorrection() {
 		ui8_position_correction_value = 127; //set advance angle to neutral value
 		return;
 	}
-
+#ifdef USE_FIELD_WEAKENING
+	const uint8_t default_curr_target = 126;
+	static uint8_t curr_target = 126;
+	const uint8_t max_angle_def = 143;
+	static uint8_t max_angle = 143;
+	
+	if (ui16_motor_speed_erps > FIELD_WEAK_MIN_SPEED) {
+		static uint8_t fweak_counter = 0;
+		if (fweak_counter++ >= 10) {
+			fweak_counter = 0;
+			if ( (ui16_BatteryCurrent < (uint32_current_target-15)) && (ui16_setpoint > 250) &&
+				 (curr_target > (default_curr_target-FIELD_WEAK_MAX_CURR)) ) {
+					curr_target -= 1;
+					max_angle = max_angle_def + FIELD_WEAK_MAX_ANGLE;
+			} else if ((ui16_BatteryCurrent >= (uint32_current_target-2)) && (curr_target < default_curr_target)) {
+					curr_target += 1;
+			}
+		}
+	} else {
+		curr_target = default_curr_target;
+		max_angle = max_angle_def;
+	}
+#else
+	const uint8_t curr_target = 126;
+	const uint8_t max_angle = 143;
+#endif
+	
 	if (ui16_motor_speed_erps > 3 && ui16_BatteryCurrent > ui16_current_cal_b + 3) { //normal riding,
-		if (ui16_ADC_iq_current >> 2 > 128 && ui8_position_correction_value < 143) {
+		if (ui16_ADC_iq_current >> 2 > (curr_target+2) && ui8_position_correction_value < max_angle) {
 			ui8_position_correction_value++;
-		} else if (ui16_ADC_iq_current >> 2 < 126 && ui8_position_correction_value > 111) {
+		} else if (ui16_ADC_iq_current >> 2 < (curr_target) && ui8_position_correction_value > 111) {
 			ui8_position_correction_value--;
 		}
 	} else if (ui16_motor_speed_erps > 3 && ui16_BatteryCurrent < ui16_current_cal_b - 3) {//regen
