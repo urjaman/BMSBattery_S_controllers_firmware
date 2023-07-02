@@ -184,9 +184,6 @@ int main(void) {
 
 			//pwm_set_duty_cycle ((uint8_t)ui16_sum_throttle);
 
-
-			
-			
 			/****************************************************************************/
 			//very slow loop for communication
 			if (ui8_veryslowloop_counter > 5) {
@@ -203,19 +200,46 @@ int main(void) {
 
 #ifdef DIAGNOSTICS
 				//uint32_torquesensorCalibration=80;
-				/*printf("C%u, B%u, T%u, PAS%u, BC%u, CB%u, ST%u TSC%u S%u H%u MA%u\r\n",
+#if 0				
+				printf("C%u, B%u, T%u, PAS%u, BC%u, CB%u, S%u H%u MA%u SP%d PCV%d\r\n",
 				ui16_control_state,
 				ui8_BatteryVoltage, 
 				(uint16_t) uint32_current_target,
 				PAS_is_active, 
 				ui16_BatteryCurrent, ui16_current_cal_b,
-				ui16_sum_torque, 
-				(uint16_t)uint32_torquesensorCalibration, ui16_motor_speed_erps, hall_sensors, ui8_s_motor_angle);*/
-				
+				ui16_motor_speed_erps, hall_sensors, ui8_s_motor_angle,
+				ui16_setpoint, ui8_position_correction_value);
+#endif
+
+#if 0
+				// "timeout" is the PAS timeout. someone rename that define ASAP.
+				if (ui16_time_ticks_between_pas_interrupt < timeout)
+					printf("%04d / %04d\r\n", ui16_PAS_High, ui16_time_ticks_between_pas_interrupt);
+#endif
+
+#if 0
+				if ((ui16_motor_speed_erps >= 60) && (ui16_motor_speed_erps < 110) && (!brake_is_set())) {
+					printf("HCYC: %03d %03d %03d %03d %03d %03d\r\n",
+					uint8_t_60deg_pwm_cycles[4-1],
+					uint8_t_60deg_pwm_cycles[6-1],
+					uint8_t_60deg_pwm_cycles[2-1],
+					uint8_t_60deg_pwm_cycles[3-1],
+					uint8_t_60deg_pwm_cycles[1-1],
+					uint8_t_60deg_pwm_cycles[5-1]
+					);
+				}
+#endif
+
 				if (ch >= 0) {
-					printf("CH:%02X\n", ch);
+					printf("CH:%02X\r\n", ch);
 					if (ch == 'x') ui8_s_motor_angle++;
 					if (ch == 'z') ui8_s_motor_angle--;
+#if 0
+					if (ch == '8') ui8_s_motor_angle = (MOTOR_ROTOR_DELTA_PHASE_ANGLE_RIGHT-85) & 0xFF;
+					if (ch == '9') ui8_s_motor_angle = MOTOR_ROTOR_DELTA_PHASE_ANGLE_RIGHT;
+					if (ch == '0') ui8_s_motor_angle = (MOTOR_ROTOR_DELTA_PHASE_ANGLE_RIGHT+85) & 0xFF;
+					if (ch == 'p') pwm_swap_phases_ac ^= 1;
+#endif
 				}
 
 				
@@ -235,13 +259,18 @@ int main(void) {
 				putchar(ui16_ADC_iq_current>>2);
 				putchar(ui8_position_correction_value);
 				putchar(255);*/
-				 //printf("%u, %d, %d, %d, %d, %d, %d\r\n", ui8_position_correction_value, (uint16_t) uint8_t_hall_case[0], (uint16_t)uint8_t_hall_case[1],(uint16_t) uint8_t_hall_case[2],(uint16_t) uint8_t_hall_case[3], (uint16_t)uint8_t_hall_case[4], (uint16_t)uint8_t_hall_case[5]);
-				// printf("\r%03d %03d %03d %03d %03d %03d", (uint16_t) uint8_t_hall_case[0], (uint16_t)uint8_t_hall_case[1],(uint16_t) uint8_t_hall_case[2],(uint16_t) uint8_t_hall_case[3], (uint16_t)uint8_t_hall_case[4], (uint16_t)uint8_t_hall_case[5]);
+				// printf("%u, %d, %d, %d, %d, %d, %d\r\n", ui8_position_correction_value, (uint16_t) uint8_t_hall_case[0], (uint16_t)uint8_t_hall_case[1],(uint16_t) uint8_t_hall_case[2],(uint16_t) uint8_t_hall_case[3], (uint16_t)uint8_t_hall_case[4], (uint16_t)uint8_t_hall_case[5]);
+	//			 printf("\r%03d %03d %03d %03d %03d %03d ", (uint16_t) uint8_t_hall_case[0], (uint16_t)uint8_t_hall_case[1],(uint16_t) uint8_t_hall_case[2],(uint16_t) uint8_t_hall_case[3], (uint16_t)uint8_t_hall_case[4], (uint16_t)uint8_t_hall_case[5]);
 				 
-				printf("P%d, BC%d, SP%d, S%d, IQ%d, BV%d, MA%d\r\n", ui8_position_correction_value, ui16_BatteryCurrent, ui16_setpoint, ui16_motor_speed_erps, ui16_ADC_iq_current>>2,ui16_adc_read_battery_voltage(), ui8_s_motor_angle);
+		//		printf(" P%d, BC%d, SP%d, S%d, IQ%d, BV%d, MA%d, SAC%d, H%d",
+		//		ui8_position_correction_value, ui16_BatteryCurrent, ui16_setpoint, ui16_motor_speed_erps, ui16_ADC_iq_current>>2,ui16_adc_read_battery_voltage(), ui8_s_motor_angle,
+		//		pwm_swap_phases_ac, hall_sensors);
 
-				
-				
+#if 0
+				// GPIO debug, for finding unknown buttons (or anything else where you're curious about pin states)
+				printf("\r%02X %02X %02X %02X %02X %02X",
+					GPIOA->IDR, GPIOB->IDR, GPIOC->IDR, GPIOD->IDR, GPIOE->IDR, GPIOG->IDR );
+#endif
 
 				//printf("correction angle %d, Current %d, Voltage %d, sumtorque %d, setpoint %d, km/h %lu\n",ui8_position_correction_value, i16_deziAmps, ui8_BatteryVoltage, ui16_sum_throttle, ui16_setpoint, ui32_speed_sensor_rpks);
 #endif
