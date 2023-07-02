@@ -1365,7 +1365,7 @@ public class OSEC extends JFrame {
 					// a custom term on a random linux distro.
 					String terminal = System.getenv("TERMINAL");
 					if (terminal == null) {
-						File tf = new File("/usr/bin/x-termial-emulator");
+						File tf = new File("/usr/bin/x-terminal-emulator");
 						if (tf.exists()) {
 							terminal = "x-terminal-emulator";
 						} else {
