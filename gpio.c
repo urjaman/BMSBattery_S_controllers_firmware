@@ -33,6 +33,10 @@ void gpio_init (void)
 	//               unk          unk
 	GPIO_Init(GPIOG, GPIO_PIN_0 | GPIO_PIN_1,
 				GPIO_MODE_IN_PU_NO_IT);
+	// Note: on an unknown board, you should also check that every pulled up pin
+	// reads back as 1 (which i did for mine). If something reads back as 0, assume
+	// it's either used for something that drives it, or is hard-wired to ground,
+	// and remove it from the pullup list.
 }
 
 void debug_pin_init (void)
