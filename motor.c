@@ -19,32 +19,27 @@
 #include "ACAcontrollerState.h"
 #include "ACAcommons.h"
 
-uint8_t ui8_counter = 0;
-uint8_t ui8_half_rotation_flag = 0;
-uint8_t ui8_foc_enable_flag = 0;
+/* Local only */
+static uint8_t ui8_half_rotation_flag = 0;
+static uint8_t ui8_foc_enable_flag = 0;
+static uint8_t ui8_assumed_motor_position = 0;
+static uint8_t ui8_motor_rotor_hall_position = 0; // in 360/256 degrees
+static uint8_t ui8_sinetable_precalc = 0;
+static uint8_t ui8_interpolation_start_position = 0;
+static uint8_t ui8_interpolation_angle = 0;
+static int8_t hall_sensors_last = 0;
+static int8_t hall_sensors_last_raw = 0;
+static uint16_t ui16_ADC_iq_current_accumulated = 4096;
 
+// Local except for diagnostics (main)
 uint16_t ui16_PWM_cycles_counter = 0;
 uint16_t ui16_PWM_cycles_counter_6 = 0;
 uint16_t ui16_PWM_cycles_counter_total = 0;
+uint16_t ui16_ADC_iq_current = 0; // main plus BO
+int8_t hall_sensors; // main only; plus it's an int8, should be fine.
 
-uint8_t ui8_assumed_motor_position = 0;
+// Motor->PWM (we call pwm; same context.)
 uint8_t ui8_sinetable_position = 0; // in 360/256 degrees
-uint8_t ui8_motor_rotor_hall_position = 0; // in 360/256 degrees
-uint8_t ui8_sinetable_precalc = 0;
-uint8_t ui8_interpolation_start_position = 0;
-
-uint8_t ui8_interpolation_angle = 0;
-
-uint16_t ui16_adc_current_phase_B = 0;
-uint16_t ui16_adc_current_phase_B_accumulated = 0;
-uint16_t ui16_adc_current_phase_B_filtered = 0;
-
-int8_t hall_sensors;
-int8_t hall_sensors_last = 0;
-int8_t hall_sensors_last_raw = 0;
-
-uint16_t ui16_ADC_iq_current_accumulated = 4096;
-uint16_t ui16_iq_current_ma = 0;
 
 #define HALL_REMAP(x) ((x&1) | ((x&2)<<1) | ((x&4) >> 1))
 
@@ -340,4 +335,9 @@ void watchdog_init(void) {
 	//  R = 2 means a value of reload register = 1
 	IWDG_SetReload(2); // 187.5us; for some reason, a value of 1 don't work, only 2
 	IWDG_ReloadCounter();
+}
+
+/* Communicate between "fast loop" (ISR) and rest of the system. */
+void motor_slow_update(void) {
+	
 }

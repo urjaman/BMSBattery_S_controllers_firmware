@@ -18,12 +18,12 @@
 #define MOTOR_STATE_RUNNING_INTERPOLATION_60 2
 #define MOTOR_STATE_RUNNING_INTERPOLATION_360 3
 
+// external for PWM (TIM1 isr context)
 extern uint8_t ui8_sinetable_position;
-extern uint16_t ui16_speed_inverse;
-extern uint16_t ui16_PWM_cycles_counter_total;
-extern uint16_t ui16_iq_current_ma;
-extern uint16_t ui16_log;
 
+// external for debug only (and the BOdisplay... now there's an acronym.)
+extern uint16_t ui16_PWM_cycles_counter_total;
+extern uint16_t ui16_ADC_iq_current;
 
 void hall_sensor_init (void);
 void hall_sensors_read_and_action (void);
