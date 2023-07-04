@@ -24,10 +24,21 @@ extern uint8_t ui8_sinetable_position;
 // external for debug only (and the BOdisplay... now there's an acronym.)
 extern uint16_t ui16_PWM_cycles_counter_total;
 extern uint16_t ui16_ADC_iq_current;
+extern uint8_t ui8_possible_motor_state;
+extern uint8_t ui8_dynamic_motor_state;
+extern uint8_t ui8_position_correction_value;
+extern uint8_t uint8_t_60deg_pwm_cycles[6];
+extern uint8_t uint8_t_hall_case[7];
+
 
 void hall_sensor_init (void);
 void hall_sensors_read_and_action (void);
 void motor_fast_loop (void);
 void watchdog_init (void);
+
+// slow loop before setpoint
+void motor_slow_update_pre(void);
+// slow loop after setpoint
+void motor_slow_update_post(void);
 
 #endif /* _MOTOR_H_ */

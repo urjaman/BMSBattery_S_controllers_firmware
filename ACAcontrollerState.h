@@ -54,15 +54,12 @@ extern uint16_t ui16_x4_value;
 extern uint16_t ui16_throttle_cal_b;
 extern uint16_t ui16_battery_current_max_value;
 extern uint16_t ui16_regen_current_max_value;
-extern uint8_t ui8_possible_motor_state;
-extern uint8_t ui8_dynamic_motor_state;
 extern uint8_t ui8_BatteryVoltage;
 extern uint8_t ui8_battery_voltage_nominal;
 extern uint16_t ui16_motor_speed_erps;
 extern uint16_t ui16_virtual_erps_speed;
 extern uint32_t ui32_erps_filtered; //filtered value of erps
 extern uint16_t ui16_BatteryCurrent;
-extern uint8_t ui8_position_correction_value;
 extern uint8_t ui8_correction_at_angle;
 extern uint8_t ui8_speedlimit_kph;
 extern uint8_t ui8_speedlimit_without_pas_kph;
@@ -77,8 +74,6 @@ extern uint8_t ui8_variableDebugC;
 
 extern int8_t i8_motor_temperature;
 
-extern uint8_t uint8_t_60deg_pwm_cycles[6];
-extern uint8_t uint8_t_hall_case[7];
 extern uint8_t uint8_t_hall_order[6];
 extern int8_t int8_t_hall_counter;
 extern uint8_t ui8_hall_debug_counter;

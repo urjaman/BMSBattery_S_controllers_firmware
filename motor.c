@@ -16,8 +16,10 @@
 #include "pwm.h"
 #include "config.h"
 #include "adc.h"
+
 #include "ACAcontrollerState.h"
 #include "ACAcommons.h"
+
 
 /* Local only */
 static uint8_t ui8_half_rotation_flag = 0;
@@ -37,9 +39,22 @@ uint16_t ui16_PWM_cycles_counter_6 = 0;
 uint16_t ui16_PWM_cycles_counter_total = 0;
 uint16_t ui16_ADC_iq_current = 0; // main plus BO
 int8_t hall_sensors; // main only; plus it's an int8, should be fine.
+uint8_t ui8_possible_motor_state = 0;
+uint8_t ui8_dynamic_motor_state = 0;
+uint8_t ui8_position_correction_value = 127; // in 360/256 degrees
+// Only for diagnostics
+uint8_t uint8_t_60deg_pwm_cycles[6];
+uint8_t uint8_t_hall_case[7];
+
 
 // Motor->PWM (we call pwm; same context.)
 uint8_t ui8_sinetable_position = 0; // in 360/256 degrees
+
+// Slow loop -> motor (by the motor_slow_update_post)
+static uint16_t BatteryCurrent;
+
+// Motor-> slow loop (_pre)
+static uint16_t motor_speed_erps;
 
 #define HALL_REMAP(x) ((x&1) | ((x&2)<<1) | ((x&4) >> 1))
 
@@ -71,7 +86,8 @@ void hall_sensors_read_and_action(void) {
 		if (hall_sensors_last >0 && hall_sensors_last < 7) {
 			uint8_t_60deg_pwm_cycles[hall_sensors_last-1] = ui16_PWM_cycles_counter_6;
 		}
-		updateHallOrder(hall_sensors);
+		updateHallOrder(hall_sensors); // this stores the hall order elsewhere, only for debug
+
 		hall_sensors_last = hall_sensors;
 
 		//printf("hall change! %d, %d \n", hall_sensors, hall_sensors_last );
@@ -91,17 +107,17 @@ void hall_sensors_read_and_action(void) {
 					if (ui16_PWM_cycles_counter > 20) ui16_PWM_cycles_counter_total = ui16_PWM_cycles_counter;
 
 					ui16_PWM_cycles_counter = 0;
-					ui16_motor_speed_erps = ((uint16_t) ui16_pwm_cycles_second) / ui16_PWM_cycles_counter_total; // this division takes ~4.2us
+					motor_speed_erps = ((uint16_t) ui16_pwm_cycles_second) / ui16_PWM_cycles_counter_total; // this division takes ~4.2us
 
 				}
 
-				if (ui16_motor_speed_erps == -1) {
-					ui16_motor_speed_erps = 0;
+				if (motor_speed_erps == -1) {
+					motor_speed_erps = 0;
 				}
 				// update motor state based on motor speed
-				if (ui16_motor_speed_erps > 75) {
+				if (motor_speed_erps > 75) {
 					ui8_possible_motor_state = MOTOR_STATE_RUNNING_INTERPOLATION_360;
-				}else if (ui16_motor_speed_erps > 3) {
+				}else if (motor_speed_erps > 3) {
 					ui8_possible_motor_state = MOTOR_STATE_RUNNING_INTERPOLATION_60;
 				} else {
 					ui8_possible_motor_state = MOTOR_STATE_RUNNING_NO_INTERPOLATION;
@@ -150,9 +166,12 @@ void hall_sensors_read_and_action(void) {
 }
 
 #define USE_FIELD_WEAKENING
-#define FIELD_WEAK_MIN_SPEED 90
-#define FIELD_WEAK_MAX_CURR 40
-#define FIELD_WEAK_MAX_ANGLE 15
+
+/* Slow loop -> ISR communication for field weakening */
+#ifdef USE_FIELD_WEAKENING
+static volatile uint8_t curr_target_ctrl = 126;
+static volatile uint8_t max_angle_ctrl = 143;
+#endif
 
 void updateCorrection() {
 
@@ -167,41 +186,22 @@ void updateCorrection() {
 		return;
 	}
 #ifdef USE_FIELD_WEAKENING
-	const uint8_t default_curr_target = 126;
-	static uint8_t curr_target = 126;
-	const uint8_t max_angle_def = 143;
-	static uint8_t max_angle = 143;
-	
-	if (ui16_motor_speed_erps > FIELD_WEAK_MIN_SPEED) {
-		static uint8_t fweak_counter = 0;
-		if (fweak_counter++ >= 10) {
-			fweak_counter = 0;
-			if ( (ui16_BatteryCurrent < (uint32_current_target-15)) && (ui16_setpoint > 250) &&
-				 (curr_target > (default_curr_target-FIELD_WEAK_MAX_CURR)) ) {
-					curr_target -= 1;
-					max_angle = max_angle_def + FIELD_WEAK_MAX_ANGLE;
-			} else if ((ui16_BatteryCurrent >= (uint32_current_target-2)) && (curr_target < default_curr_target)) {
-					curr_target += 1;
-			}
-		}
-	} else {
-		curr_target = default_curr_target;
-		max_angle = max_angle_def;
-	}
+	uint8_t curr_target = curr_target_ctrl;
+	uint8_t max_angle = max_angle_ctrl;
 #else
 	const uint8_t curr_target = 126;
 	const uint8_t max_angle = 143;
 #endif
 	
-	if (ui16_motor_speed_erps > 3 && ui16_BatteryCurrent > ui16_current_cal_b + 3) { //normal riding,
+	if (motor_speed_erps > 3 && BatteryCurrent > ui16_current_cal_b + 3) { //normal riding,
 		if (ui16_ADC_iq_current >> 2 > (curr_target+2) && ui8_position_correction_value < max_angle) {
 			ui8_position_correction_value++;
 		} else if (ui16_ADC_iq_current >> 2 < (curr_target) && ui8_position_correction_value > 111) {
 			ui8_position_correction_value--;
 		}
-	} else if (ui16_motor_speed_erps > 3 && ui16_BatteryCurrent < ui16_current_cal_b - 3) {//regen
+	} else if (motor_speed_erps > 3 && BatteryCurrent < ui16_current_cal_b - 3) {//regen
 		ui8_position_correction_value = 127; //set advance angle to neutral value
-	} else if (ui16_motor_speed_erps < 3) {
+	} else if (motor_speed_erps < 3) {
 		ui8_position_correction_value = 127; //reset advance angle at very low speed)
 	}
 
@@ -210,6 +210,8 @@ void updateCorrection() {
 // runs every 64us (PWM frequency)
 
 void motor_fast_loop(void) {
+
+	/* FIXME: These counters are... not well implemented. */
 	if (ui16_time_ticks_for_uart_timeout < 65530) {
 		ui16_time_ticks_for_uart_timeout++;
 	}
@@ -231,7 +233,7 @@ void motor_fast_loop(void) {
 		ui16_PWM_cycles_counter_total = 0xffff; //(SVM_TABLE_LEN_x1024) / PWM_CYCLES_COUNTER_MAX;
 		ui8_position_correction_value = 127;
 		hall_sensors_last = 0;
-		ui16_motor_speed_erps = 0;
+		motor_speed_erps = 0;
 
 
 		// next code is need for motor startup correctly
@@ -337,7 +339,59 @@ void watchdog_init(void) {
 	IWDG_ReloadCounter();
 }
 
+
+// Move these includes here if you want to see the identifiers that the ISR code uses
+// without much regard for safety (most of whats left (except those timers) are effectively constants (except if adjusted during debug).
+//#include "ACAcontrollerState.h"
+//#include "ACAcommons.h"
+
+
+// The concept here is loaned from linux; except that SDCC doesnt do typeof(x), so we need one per width.
+#define READ_ONCE_U16(x)	(*(const volatile uint16_t *)&(x))
+#define WRITE_ONCE_U16(x, val)						\
+do {									\
+	*(volatile uint16_t *)&(x) = (val);				\
+} while (0)
+
 /* Communicate between "fast loop" (ISR) and rest of the system. */
-void motor_slow_update(void) {
-	
+
+void motor_slow_update_pre(void) {
+	disableInterrupts();
+	ui16_motor_speed_erps = READ_ONCE_U16(motor_speed_erps);
+	enableInterrupts();
+}
+
+void motor_slow_update_post(void) {
+#ifdef USE_FIELD_WEAKENING
+#define FIELD_WEAK_MIN_SPEED 90
+#define FIELD_WEAK_MAX_CURR 40
+#define FIELD_WEAK_MAX_ANGLE 15
+	const uint8_t default_curr_target = 126;
+	const uint8_t max_angle_def = 143;
+	uint8_t curr_target = curr_target_ctrl;
+	uint8_t max_angle = max_angle_ctrl;
+	if (ui16_motor_speed_erps > FIELD_WEAK_MIN_SPEED) {
+		static uint8_t fweak_counter = 0;
+		if (fweak_counter++ >= 5) {
+			fweak_counter = 0;
+			if ( (ui16_BatteryCurrent < (uint32_current_target-15)) && (ui16_setpoint > 250) &&
+				 (curr_target > (default_curr_target-FIELD_WEAK_MAX_CURR)) ) {
+					curr_target -= 1;
+					max_angle = max_angle_def + FIELD_WEAK_MAX_ANGLE;
+			} else if ((ui16_BatteryCurrent >= (uint32_current_target-2)) && (curr_target < default_curr_target)) {
+					curr_target += 1;
+			}
+		}
+	} else {
+		curr_target = default_curr_target;
+		max_angle = max_angle_def;
+	}
+	// No harm should happen if the ISR happens between these writes, so no need to disableInterrupts() yet.
+	curr_target_ctrl = curr_target;
+	max_angle_ctrl = max_angle;
+#endif
+
+	disableInterrupts();
+	WRITE_ONCE_U16(BatteryCurrent, ui16_BatteryCurrent);
+	enableInterrupts();
 }

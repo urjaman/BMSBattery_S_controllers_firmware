@@ -86,15 +86,12 @@ uint16_t ui16_x4_value = 0;
 uint16_t ui16_throttle_cal_b = 0;
 uint16_t ui16_battery_current_max_value = 0;
 uint16_t ui16_regen_current_max_value = 0;
-uint8_t ui8_possible_motor_state = 0;
-uint8_t ui8_dynamic_motor_state = 0;
 uint8_t ui8_BatteryVoltage = 0; //Battery Voltage read from ADC
 uint8_t ui8_battery_voltage_nominal =0;
 uint16_t ui16_motor_speed_erps = 0;
 uint32_t ui32_erps_filtered = 0; //filtered value of erps
 uint16_t ui16_virtual_erps_speed = 0;
 uint16_t ui16_BatteryCurrent = 0; //Battery Current read from ADC8
-uint8_t ui8_position_correction_value = 127; // in 360/256 degrees
 uint8_t ui8_correction_at_angle = 127;
 uint16_t ui16_control_state = 0;
 uint8_t ui8_uptime = 0;
@@ -105,8 +102,6 @@ uint8_t ui8_variableDebugC = 0;
 
 int8_t i8_motor_temperature = 0;
 
-uint8_t uint8_t_60deg_pwm_cycles[6];
-uint8_t uint8_t_hall_case[7];
 uint8_t uint8_t_hall_order[6];
 int8_t int8_t_hall_counter = 0;
 uint8_t ui8_hall_order_counter = 5;

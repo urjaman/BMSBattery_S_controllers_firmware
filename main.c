@@ -19,7 +19,6 @@
 #include "uart.h"
 #include "adc.h"
 #include "brake.h"
-#include "cruise_control.h"
 #include "timers.h"
 #include "pwm.h"
 #include "PAS.h"
@@ -168,19 +167,15 @@ int main(void) {
 			ui8_slowloop_flag = 0; //reset flag for slow loop
 			ui8_veryslowloop_counter++; // increase counter for very slow loop
 
+			motor_slow_update_pre();
 			checkPasInActivity();
 			updateRequestedTorque(); //now calculates tq for sensor as well
 			updateSlowLoopStates();
 			updateX4();
 			updateLight();
 			ui16_setpoint = (uint16_t) aca_setpoint(ui16_time_ticks_between_pas_interrupt, ui16_setpoint); //update setpoint
-
-			//#define DO_CRUISE_CONTROL 1
-#if DO_CRUISE_CONTROL == 1
-			ui16_setpoint = cruise_control(ui16_setpoint);
-#endif
-
 			pwm_set_duty_cycle((uint8_t) ui16_setpoint);
+			motor_slow_update_post();
 
 			//pwm_set_duty_cycle ((uint8_t)ui16_sum_throttle);
 
