@@ -77,11 +77,11 @@ void hall_sensor_init(void) {
 
 void hall_sensors_read_and_action(void) {
 	// read hall sensors signal pins and mask other pins
-	hall_sensors = (GPIO_ReadInputData(HALL_SENSORS__PORT) & (HALL_SENSORS_MASK));
-	if ((hall_sensors != hall_sensors_last_raw) || (ui8_possible_motor_state == MOTOR_STATE_COAST)) // let's run the code when motor is stopped/coast so it can pick right motor position for correct startup
+	int8_t hs = (GPIO_ReadInputData(HALL_SENSORS__PORT) & (HALL_SENSORS_MASK));
+	if ((hs != hall_sensors_last_raw) || (ui8_possible_motor_state == MOTOR_STATE_COAST)) // let's run the code when motor is stopped/coast so it can pick right motor position for correct startup
 	{
-		hall_sensors_last_raw = hall_sensors;
-		hall_sensors = HALL_REMAP(hall_sensors);
+		hall_sensors_last_raw = hs;
+		hall_sensors = HALL_REMAP(hs);
 		
 		if (hall_sensors_last >0 && hall_sensors_last < 7) {
 			uint8_t_60deg_pwm_cycles[hall_sensors_last-1] = ui16_PWM_cycles_counter_6;
@@ -374,7 +374,7 @@ void motor_slow_update_post(void) {
 		static uint8_t fweak_counter = 0;
 		if (fweak_counter++ >= 5) {
 			fweak_counter = 0;
-			if ( (ui16_BatteryCurrent < (uint32_current_target-15)) && (ui16_setpoint > 250) &&
+			if ( (ui16_BatteryCurrent < (uint32_current_target-10)) && (ui16_setpoint > 250) &&
 				 (curr_target > (default_curr_target-FIELD_WEAK_MAX_CURR)) ) {
 					curr_target -= 1;
 					max_angle = max_angle_def + FIELD_WEAK_MAX_ANGLE;
