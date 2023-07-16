@@ -13,7 +13,6 @@
 #include "main.h"
 #include "interrupts.h"
 #include "PAS.h"
-#include "cruise_control.h"
 #include "motor.h"
 #include "pwm.h"
 #include "ACAcontrollerState.h"

@@ -23,6 +23,7 @@
 #include "ACAsetPoint.h"
 #include "ACAcontrollerState.h"
 #include "ACAcommons.h"
+#include "cruise_control.h"
 // FIXME ugly cross references
 // why? cause this blackbox is just for calculating,
 // it's not supposed to read values on its own
@@ -268,6 +269,9 @@ uint16_t aca_setpoint(uint16_t ui16_time_ticks_between_pas_interrupt, uint16_t s
 			//float_temp *= (1 - (float) ui16_virtual_erps_speed / 2 / (float) (ui16_speed_kph_to_erps_ratio * ((float) ui8_speedlimit_kph))); //ramp down linear with speed. Risk: Value is getting negative if speed>2*speedlimit
 
 		}
+
+		float cc_throttle = ((float)cruise_control_throttle(ui16_virtual_erps_speed, ui16_momentary_throttle)) / 4.0;
+		if (cc_throttle > float_temp) float_temp = cc_throttle;
 
 		// map curret target to assist level, not to maximum value
 		if ((ui16_aca_flags & ASSIST_LVL_AFFECTS_THROTTLE) == ASSIST_LVL_AFFECTS_THROTTLE) {

@@ -27,7 +27,7 @@ void gpio_init (void)
 	//               SWIM         unk          unk
 	GPIO_Init(GPIOD, GPIO_PIN_1 | GPIO_PIN_3 | GPIO_PIN_4,
 				GPIO_MODE_IN_PU_NO_IT);
-	//               unk          unk
+	//               unk          CRUISE (is fine with this default)
 	GPIO_Init(GPIOE, GPIO_PIN_3 | GPIO_PIN_5,
 				GPIO_MODE_IN_PU_NO_IT);
 	//               unk          unk

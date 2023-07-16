@@ -23,7 +23,7 @@
 #include "pwm.h"
 #include "PAS.h"
 #include "SPEED.h"
-//#include "update_setpoint.h"
+#include "cruise_control.h"
 #include "ACAsetPoint.h"
 #include "config.h"
 #include "display.h"
@@ -112,6 +112,7 @@ int main(void) {
 	PAS_init();
 	SPEED_init();
 	aca_setpoint_init();
+	cruise_control_init();
 #if (defined (DISPLAY_TYPE) && defined (DISPLAY_TYPE_KINGMETER)) || defined DISPLAY_TYPE_KT_LCD3 || defined BLUOSEC
 	display_init();
 #endif
@@ -173,6 +174,8 @@ int main(void) {
 			updateSlowLoopStates();
 			updateX4();
 			updateLight();
+			cruise_control_update();
+
 			ui16_setpoint = (uint16_t) aca_setpoint(ui16_time_ticks_between_pas_interrupt, ui16_setpoint); //update setpoint
 			pwm_set_duty_cycle((uint8_t) ui16_setpoint);
 			motor_slow_update_post();

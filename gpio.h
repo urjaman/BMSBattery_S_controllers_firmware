@@ -118,6 +118,9 @@
 #define LIGHT__PIN                  GPIO_PIN_4
 #define LIGHT__PORT                 GPIOC
 
+#define CRUISE_PIN					GPIO_PIN_5
+#define CRUISE_PORT					GPIOE
+
 
 void gpio_init (void);
 void debug_pin_init (void);
