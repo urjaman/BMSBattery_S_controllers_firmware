@@ -23,13 +23,10 @@ uint8_t cruise_control_enabled(void) {
 	return !!cruise_control_speed;
 }
 
-uint16_t cruise_control_throttle(uint16_t erps, uint16_t ext_throttle) {
+uint16_t cruise_control_throttle(uint16_t erps) {
 	/* CC Off? Quick exit. */
 	if (!cruise_control_speed) {
 		ccthr_i = 0;
-		return 0;
-	}
-	if (ext_throttle > (ccthr_i >> 6)) {
 		return 0;
 	}
 

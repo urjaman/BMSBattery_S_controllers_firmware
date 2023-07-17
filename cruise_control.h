@@ -7,10 +7,11 @@
 
 #include "main.h"
 void cruise_control_init(void);
-uint16_t cruise_control_throttle(uint16_t erps, uint16_t ext_throttle);
+uint16_t cruise_control_throttle(uint16_t erps);
 
 void enable_cruise_control(uint16_t erps);
 void stop_cruise_control (void);
 void cruise_control_update(void);
+uint8_t cruise_control_enabled(void);
 
 #endif /* _CRUISE_CONTROL_H */

@@ -270,8 +270,10 @@ uint16_t aca_setpoint(uint16_t ui16_time_ticks_between_pas_interrupt, uint16_t s
 
 		}
 
-		float cc_throttle = ((float)cruise_control_throttle(ui16_virtual_erps_speed, ui16_momentary_throttle)) / 4.0;
-		if (cc_throttle > float_temp) float_temp = cc_throttle;
+		if (cruise_control_enabled()) {
+			float cc_throttle = ((float)cruise_control_throttle(ui16_virtual_erps_speed)) / 4.0;
+			if (cc_throttle > float_temp) float_temp = cc_throttle;
+		}
 
 		// map curret target to assist level, not to maximum value
 		if ((ui16_aca_flags & ASSIST_LVL_AFFECTS_THROTTLE) == ASSIST_LVL_AFFECTS_THROTTLE) {
