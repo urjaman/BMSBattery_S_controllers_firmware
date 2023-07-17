@@ -89,6 +89,7 @@ void UART2_IRQHandler(void) __interrupt(UART2_IRQHANDLER);
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
+volatile int32_t test_value = -15000;
 
 extern int8_t hall_sensors;
 
@@ -143,6 +144,10 @@ int main(void) {
 	printf("System initialized\r\n");
 #endif
 
+	int32_t test_result = test_value * 100;
+	
+	printf("test_result = %04X trh=%04X\n", (uint16_t)test_result, (uint16_t)(((uint32_t)test_result) >> 16));
+
 		printf("%03d %03d %03d %03d %03d %03d\r\n",
 			ui8_s_hall_angle4_0, ui8_s_hall_angle6_60, ui8_s_hall_angle2_120,
 			ui8_s_hall_angle3_180, ui8_s_hall_angle1_240, ui8_s_hall_angle5_300);
@@ -194,20 +199,25 @@ int main(void) {
 				if (ui8_ultraslowloop_counter > 10) {
 					ui8_ultraslowloop_counter = 0;
 					ui8_uptime++;
+#ifdef DIAGNOSTICS
+
+#if 1
+				printf("C%04X BC%03d/%03d PAS%u-%05u S%u SP%03d PCV%d B%u\r\n",
+				ui16_control_state,
+				(int)(ui16_BatteryCurrent - ui16_current_cal_b),
+				(int)(uint32_current_target - ui16_current_cal_b),
+				PAS_is_active, ui16_time_ticks_between_pas_interrupt,
+				ui16_motor_speed_erps,
+				ui16_setpoint, ui8_position_correction_value,
+				ui8_BatteryVoltage
+				);
+#endif
+
+#endif
 				}
 
 #ifdef DIAGNOSTICS
 				//uint32_torquesensorCalibration=80;
-#if 0				
-				printf("C%u, B%u, T%u, PAS%u, BC%u, CB%u, S%u H%u MA%u SP%d PCV%d\r\n",
-				ui16_control_state,
-				ui8_BatteryVoltage, 
-				(uint16_t) uint32_current_target,
-				PAS_is_active, 
-				ui16_BatteryCurrent, ui16_current_cal_b,
-				ui16_motor_speed_erps, hall_sensors, ui8_s_motor_angle,
-				ui16_setpoint, ui8_position_correction_value);
-#endif
 
 #if 0
 				// "timeout" is the PAS timeout. someone rename that define ASAP.
@@ -230,9 +240,9 @@ int main(void) {
 
 				if (ch >= 0) {
 					printf("CH:%02X\r\n", ch);
+#if 0
 					if (ch == 'x') ui8_s_motor_angle++;
 					if (ch == 'z') ui8_s_motor_angle--;
-#if 0
 					if (ch == '8') ui8_s_motor_angle = (MOTOR_ROTOR_DELTA_PHASE_ANGLE_RIGHT-85) & 0xFF;
 					if (ch == '9') ui8_s_motor_angle = MOTOR_ROTOR_DELTA_PHASE_ANGLE_RIGHT;
 					if (ch == '0') ui8_s_motor_angle = (MOTOR_ROTOR_DELTA_PHASE_ANGLE_RIGHT+85) & 0xFF;

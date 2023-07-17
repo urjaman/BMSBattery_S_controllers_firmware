@@ -99,6 +99,9 @@ void aca_setpoint_init(void) {
 }
 
 uint16_t aca_setpoint(uint16_t ui16_time_ticks_between_pas_interrupt, uint16_t setpoint_old) {
+	uint8_t without_pas = ui16_time_ticks_for_pas_calculation > timeout || !PAS_is_active;
+	if (!cruise_control_enabled()) without_pas = 1;
+
 	// select virtual erps speed based on speedsensor type
 	if (((ui16_aca_flags & EXTERNAL_SPEED_SENSOR) == EXTERNAL_SPEED_SENSOR)) {
 		ui16_virtual_erps_speed = (uint16_t) ((((uint32_t)ui8_gear_ratio) * ui32_speed_sensor_rpks) /1000); 
@@ -113,7 +116,7 @@ uint16_t aca_setpoint(uint16_t ui16_time_ticks_between_pas_interrupt, uint16_t s
 		ui8_speedlimit_actual_kph = ui8_speedlimit_kph + (ui8_offroad_state - 16);
 	} else if (ui8_offroad_state > 15 && ui16_sum_throttle > 2) {
 		ui8_speedlimit_actual_kph = ui8_speedlimit_with_throttle_override_kph + (ui8_offroad_state - 16);
-	} else if (ui16_time_ticks_for_pas_calculation > timeout || !PAS_is_active) {
+	} else if (without_pas) {
 		ui8_speedlimit_actual_kph = ui8_speedlimit_without_pas_kph;
 	} else {
 		ui8_speedlimit_actual_kph = ui8_speedlimit_kph;
@@ -309,13 +312,18 @@ uint16_t aca_setpoint(uint16_t ui16_time_ticks_between_pas_interrupt, uint16_t s
 			controll_state_temp += 128;
 		}
 		
+#if 0
 		// control power instead of current
 		if ((ui16_aca_flags & POWER_BASED_CONTROL) == POWER_BASED_CONTROL) {
+			uint16_t positive_current = uint32_current_target - ui16_current_cal_b;
 			// nominal voltage based on limits
 			ui8_temp = ((ui8_s_battery_voltage_max - ui8_s_battery_voltage_min)>>1)+ui8_s_battery_voltage_min;
-			uint32_current_target*=ui8_temp/ui8_BatteryVoltage;
+			positive_current = ((uint32_t)positive_current * (uint32_t)ui8_temp)/ui8_BatteryVoltage;
+			if (positive_current > ui16_battery_current_max_value) positive_current = ui16_battery_current_max_value;
+			uint32_current_target = positive_current + ui16_current_cal_b;
 		}
-		
+#endif
+	
 		if ((ui16_aca_experimental_flags & DC_STATIC_ZERO) == DC_STATIC_ZERO) {
 			ui32_dutycycle = 0;
 			controll_state_temp += 256;
