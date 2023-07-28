@@ -25,6 +25,7 @@
 #include "interrupts.h"
 #include "ACAeeprom.h"
 #include "brake.h" // ugly crossrefernce for brake_is_set(), FIXME
+#include "motor.h"
 #include "ACAcontrollerState.h"
 #include "ACAcommons.h"
 
