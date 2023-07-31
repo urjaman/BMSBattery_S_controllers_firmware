@@ -8,7 +8,7 @@
  * You should have received a copy of the GNU General Public License along with this program; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
  */
 
-/* 
+/*
  * File:   ACAsetPoint.c
  * Author: Björn Schmidt
  *
@@ -30,6 +30,7 @@
 // all values should be read by a slowloop_"readall/updatesensors, whatever" before calling it
 #include "brake.h"
 #include "adc.h" // FIXME ugly cross reference
+#include "motor.h" // reverse could be cleaner.. hm.
 
 static uint32_t ui32_dutycycle; // local version of setpoint
 
@@ -37,7 +38,7 @@ static int8_t uint_PWM_Enable = 0; //flag for PWM state
 static uint16_t ui16_BatteryCurrent_accumulated = 2496L; //8x current offset, for filtering or Battery Current
 static uint16_t ui16_BatteryVoltage_accumulated;
 static uint16_t ui16_assist_percent_smoothed;
-static uint32_t ui32_time_ticks_between_pas_interrupt_accumulated = 0; // for filtering of PAS value 
+static uint32_t ui32_time_ticks_between_pas_interrupt_accumulated = 0; // for filtering of PAS value
 static uint32_t ui32_erps_accumulated; //for filtering of erps
 //static uint32_t ui32_speedlimit_actual_accumulated;
 static uint32_t ui32_sumthrottle_accumulated; //it is already smoothed b4 we get it, we want to smooth it even more though for dynamic assist levels
@@ -104,7 +105,7 @@ uint16_t aca_setpoint(uint16_t ui16_time_ticks_between_pas_interrupt, uint16_t s
 
 	// select virtual erps speed based on speedsensor type
 	if (((ui16_aca_flags & EXTERNAL_SPEED_SENSOR) == EXTERNAL_SPEED_SENSOR)) {
-		ui16_virtual_erps_speed = (uint16_t) ((((uint32_t)ui8_gear_ratio) * ui32_speed_sensor_rpks) /1000); 
+		ui16_virtual_erps_speed = (uint16_t) ((((uint32_t)ui8_gear_ratio) * ui32_speed_sensor_rpks) /1000);
 	}else{
 		ui16_virtual_erps_speed = (uint16_t) ui32_erps_filtered;
 	}
@@ -122,6 +123,9 @@ uint16_t aca_setpoint(uint16_t ui16_time_ticks_between_pas_interrupt, uint16_t s
 		ui8_speedlimit_actual_kph = ui8_speedlimit_kph;
 	}
 
+	if (motor_direction_reverse)
+		ui8_speedlimit_actual_kph = 2;
+
 	// >=8 means levels are switched of, use wanted percentage directly instead
 	ui16_assist_percent_smoothed -= ui16_assist_percent_smoothed >> 4;
 	if ((ui8_assistlevel_global & 15) < 8) {
@@ -132,7 +136,7 @@ uint16_t aca_setpoint(uint16_t ui16_time_ticks_between_pas_interrupt, uint16_t s
 	ui8_assist_percent_actual = ui16_assist_percent_smoothed >> 4;
 
 
-	// average throttle over a longer time period (for dynamic assist level) 
+	// average throttle over a longer time period (for dynamic assist level)
 	ui32_sumthrottle_accumulated -= ui32_sumthrottle_accumulated >> 10;
 	ui32_sumthrottle_accumulated += ui16_sum_throttle;
 	ui8_assist_dynamic_percent_addon = ui32_sumthrottle_accumulated >> 10;
@@ -161,10 +165,10 @@ uint16_t aca_setpoint(uint16_t ui16_time_ticks_between_pas_interrupt, uint16_t s
 		ui32_time_ticks_between_pas_interrupt_accumulated += ui16_time_ticks_between_pas_interrupt;
 	}
 	ui16_time_ticks_between_pas_interrupt_smoothed = ui32_time_ticks_between_pas_interrupt_accumulated >> 3;
-	
+
 	// check for brake --> set regen current
 	if (brake_is_set()) {
-		
+
 		controll_state_temp = 255;
 		//Current target based on regen assist level
 		if ((ui16_aca_flags & DIGITAL_REGEN) == DIGITAL_REGEN) {
@@ -195,11 +199,11 @@ uint16_t aca_setpoint(uint16_t ui16_time_ticks_between_pas_interrupt, uint16_t s
 		}
 
 		uint32_current_target = (uint32_t) ui16_current_cal_b - float_temp;
-		
+
 		if (!checkOverVoltageOverride()){
 			ui32_dutycycle = PI_control(ui16_BatteryCurrent, uint32_current_target,uint_PWM_Enable);
 		}
-		
+
 		if (((ui16_aca_flags & BYPASS_LOW_SPEED_REGEN_PI_CONTROL) == BYPASS_LOW_SPEED_REGEN_PI_CONTROL) && (ui32_dutycycle == 0)) {
 			//try to get best regen at Low Speeds for BionX IGH
 			ui32_dutycycle = ui16_virtual_erps_speed * 2;
@@ -290,7 +294,7 @@ uint16_t aca_setpoint(uint16_t ui16_time_ticks_between_pas_interrupt, uint16_t s
 		if ((uint32_t) float_temp > uint32_current_target) {
 
 				//override current target with throttle
-				uint32_current_target = (uint32_t) float_temp; 
+				uint32_current_target = (uint32_t) float_temp;
 
 			controll_state_temp += 16;
 		}
@@ -311,7 +315,7 @@ uint16_t aca_setpoint(uint16_t ui16_time_ticks_between_pas_interrupt, uint16_t s
 			uint32_current_target = (PHASE_CURRENT_MAX_VALUE) * setpoint_old / 255 + ui16_current_cal_b;
 			controll_state_temp += 128;
 		}
-		
+
 #if 0
 		// control power instead of current
 		if ((ui16_aca_flags & POWER_BASED_CONTROL) == POWER_BASED_CONTROL) {
@@ -323,7 +327,7 @@ uint16_t aca_setpoint(uint16_t ui16_time_ticks_between_pas_interrupt, uint16_t s
 			uint32_current_target = positive_current + ui16_current_cal_b;
 		}
 #endif
-	
+
 		if ((ui16_aca_experimental_flags & DC_STATIC_ZERO) == DC_STATIC_ZERO) {
 			ui32_dutycycle = 0;
 			controll_state_temp += 256;
@@ -333,7 +337,7 @@ uint16_t aca_setpoint(uint16_t ui16_time_ticks_between_pas_interrupt, uint16_t s
 			//send current target to PI-controller
 			ui32_dutycycle = PI_control(ui16_BatteryCurrent, uint32_current_target,uint_PWM_Enable);
 		}
-		
+
 		if ((ui16_aca_experimental_flags & PWM_AUTO_OFF) == PWM_AUTO_OFF) {
 			controll_state_temp += 512;
 			//disable PWM if enabled and no power is wanted
@@ -349,7 +353,7 @@ uint16_t aca_setpoint(uint16_t ui16_time_ticks_between_pas_interrupt, uint16_t s
 		}else{
 
 			//enable PWM if disabled and voltage is 6.25% higher than min, some hysteresis
-			if (!uint_PWM_Enable && ui8_BatteryVoltage > (ui8_s_battery_voltage_min + (ui8_s_battery_voltage_min >>4))) { 
+			if (!uint_PWM_Enable && ui8_BatteryVoltage > (ui8_s_battery_voltage_min + (ui8_s_battery_voltage_min >>4))) {
 				TIM1_CtrlPWMOutputs(ENABLE);
 				uint_PWM_Enable = 1;
 			}

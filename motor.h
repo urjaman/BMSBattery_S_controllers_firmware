@@ -41,4 +41,9 @@ void motor_slow_update_pre(void);
 // slow loop after setpoint
 void motor_slow_update_post(void);
 
+// written by reverse control (cruise_control.c, for now),
+// used by fast ISR in motor.c
+extern volatile uint8_t motor_direction_reverse;
+
+
 #endif /* _MOTOR_H_ */

@@ -56,6 +56,9 @@ static uint16_t BatteryCurrent;
 // Motor-> slow loop (_pre)
 static uint16_t motor_speed_erps;
 
+// Direct from cruise_control.c
+volatile uint8_t motor_direction_reverse;
+
 #define HALL_REMAP(x) ((x&1) | ((x&2)<<1) | ((x&4) >> 1))
 
 void TIM1_UPD_OVF_TRG_BRK_IRQHandler(void) __interrupt(TIM1_UPD_OVF_TRG_BRK_IRQHANDLER) {
@@ -82,7 +85,7 @@ void hall_sensors_read_and_action(void) {
 	{
 		hall_sensors_last_raw = hs;
 		hall_sensors = HALL_REMAP(hs);
-		
+
 		if (hall_sensors_last >0 && hall_sensors_last < 7) {
 			uint8_t_60deg_pwm_cycles[hall_sensors_last-1] = ui16_PWM_cycles_counter_6;
 		}
@@ -162,10 +165,15 @@ void hall_sensors_read_and_action(void) {
 		}
 
 		ui16_PWM_cycles_counter_6 = 0;
+		if (motor_direction_reverse) {
+		//	ui8_possible_motor_state = MOTOR_STATE_RUNNING_NO_INTERPOLATION;
+			ui8_motor_rotor_hall_position -= 100;
+		}
+
 	}
 }
 
-#define USE_FIELD_WEAKENING
+//#define USE_FIELD_WEAKENING
 
 /* Slow loop -> ISR communication for field weakening */
 #ifdef USE_FIELD_WEAKENING
@@ -173,18 +181,25 @@ static volatile uint8_t curr_target_ctrl = 126;
 static volatile uint8_t max_angle_ctrl = 143;
 #endif
 
-void updateCorrection() {
+static void updateCorrection(uint8_t reverse) {
 
 	if (ui8_duty_cycle_target > 5) {
 		ui16_ADC_iq_current_accumulated -= ui16_ADC_iq_current_accumulated >> 3;
 		ui16_ADC_iq_current_accumulated += ui16_adc_read_phase_B_current();
-		ui16_ADC_iq_current = ui16_ADC_iq_current_accumulated >> 3; // this value is regualted to be zero by FOC 
+		ui16_ADC_iq_current = ui16_ADC_iq_current_accumulated >> 3; // this value is regualted to be zero by FOC
 	}
 
 	if ((ui16_aca_flags & ANGLE_CORRECTION_ENABLED) != ANGLE_CORRECTION_ENABLED) {
 		ui8_position_correction_value = 127; //set advance angle to neutral value
 		return;
 	}
+#if 0
+	if (reverse) {
+		ui8_position_correction_value = 127; // neutral
+		return;
+	}
+#endif
+
 #ifdef USE_FIELD_WEAKENING
 	uint8_t curr_target = curr_target_ctrl;
 	uint8_t max_angle = max_angle_ctrl;
@@ -192,7 +207,7 @@ void updateCorrection() {
 	const uint8_t curr_target = 126;
 	const uint8_t max_angle = 143;
 #endif
-	
+
 	if (motor_speed_erps > 3 && BatteryCurrent > ui16_current_cal_b + 3) { //normal riding,
 		if (ui16_ADC_iq_current >> 2 > (curr_target+2) && ui8_position_correction_value < max_angle) {
 			ui8_position_correction_value++;
@@ -211,6 +226,7 @@ void updateCorrection() {
 
 void motor_fast_loop(void) {
 
+
 	/* FIXME: These counters are... not well implemented. */
 	if (ui16_time_ticks_for_uart_timeout < 65530) {
 		ui16_time_ticks_for_uart_timeout++;
@@ -224,7 +240,7 @@ void motor_fast_loop(void) {
 	if (GPIO_ReadInputPin(PAS__PORT, PAS__PIN) && ui16_PAS_High_Counter < 65530) {
 		ui16_PAS_High_Counter++;
 	}
-
+	uint8_t reverse = motor_direction_reverse;
 
 	// count number of fast loops / PWM cycles
 	if (ui16_PWM_cycles_counter >= PWM_CYCLES_COUNTER_MAX) {
@@ -245,12 +261,12 @@ void motor_fast_loop(void) {
 	//  // calculate the interpolation angle
 	//  // interpolation seems a problem when motor starts, so avoid to do it at very low speed
 	if (((ui8_possible_motor_state == MOTOR_STATE_RUNNING_INTERPOLATION_60)||(ui8_possible_motor_state == MOTOR_STATE_RUNNING_INTERPOLATION_360)) && ((ui16_aca_experimental_flags & DISABLE_INTERPOLATION) != DISABLE_INTERPOLATION)) {
-		
+
 		if (
 				((ui16_aca_experimental_flags & DISABLE_60_DEG_INTERPOLATION) == DISABLE_60_DEG_INTERPOLATION)||
 				(((ui16_aca_experimental_flags & SWITCH_360_DEG_INTERPOLATION) == SWITCH_360_DEG_INTERPOLATION) && (ui8_possible_motor_state == MOTOR_STATE_RUNNING_INTERPOLATION_360))
 				){
-			
+
 			if (ui16_PWM_cycles_counter>255){
 				ui8_interpolation_angle = (ui16_PWM_cycles_counter <<5) / (ui16_PWM_cycles_counter_total>>3);
 			}else{
@@ -259,7 +275,7 @@ void motor_fast_loop(void) {
 			ui8_interpolation_start_position = ui8_s_hall_angle3_180; // that's where ui16_PWM_cycles_counter is being reset
 			ui8_dynamic_motor_state = MOTOR_STATE_RUNNING_INTERPOLATION_360;
 		}else{
-			
+
 			if (ui16_PWM_cycles_counter_6>255){
 				ui8_interpolation_angle = (ui16_PWM_cycles_counter_6 <<5) / (ui16_PWM_cycles_counter_total>>3);
 			}else{
@@ -271,16 +287,20 @@ void motor_fast_loop(void) {
 
 		ui16_PWM_cycles_counter_6++;
 	}else {// MOTOR_STATE_COAST || MOTOR_STATE_RUNNING_NO_INTERPOLATION
-		
+
 		ui8_interpolation_angle = 0;
-		
+
 		ui8_interpolation_start_position = ui8_motor_rotor_hall_position;
 		ui8_dynamic_motor_state = MOTOR_STATE_RUNNING_NO_INTERPOLATION;
-		
+
 	}
 	ui16_PWM_cycles_counter++;
+	if (reverse) {
+		ui8_sinetable_precalc = ui8_interpolation_start_position + ui8_s_motor_angle + ui8_position_correction_value -127 - ui8_interpolation_angle;
+	} else {
+		ui8_sinetable_precalc = ui8_interpolation_start_position + ui8_s_motor_angle + ui8_position_correction_value -127 + ui8_interpolation_angle;
+	}
 
-	ui8_sinetable_precalc = ui8_interpolation_start_position + ui8_s_motor_angle + ui8_position_correction_value -127 + ui8_interpolation_angle;
 	if ((ui16_aca_experimental_flags & AVOID_MOTOR_CYCLES_JITTER) != AVOID_MOTOR_CYCLES_JITTER){
 		ui8_sinetable_position = ui8_sinetable_precalc;
 	}else{
@@ -295,10 +315,13 @@ void motor_fast_loop(void) {
 			ui8_variableDebugA = ui8_motor_rotor_hall_position;
 		}
 	}
-	
-	//ui8_assumed_motor_position = ui8_interpolation_start_position + ui8_interpolation_angle + ui8_s_motor_angle + ui8_position_correction_value - 127;
-	ui8_assumed_motor_position = ui8_interpolation_start_position + ui8_interpolation_angle + ui8_s_motor_angle;
 
+	//ui8_assumed_motor_position = ui8_interpolation_start_position + ui8_interpolation_angle + ui8_s_motor_angle + ui8_position_correction_value - 127;
+	if (reverse) {
+		ui8_assumed_motor_position = ui8_interpolation_start_position + ui8_s_motor_angle - ui8_interpolation_angle;
+	} else {
+		ui8_assumed_motor_position = ui8_interpolation_start_position + ui8_interpolation_angle + ui8_s_motor_angle;
+	}
 
 	// check if FOC control is needed
 	if ((ui8_foc_enable_flag) && ((ui8_assumed_motor_position) >= (ui8_correction_at_angle)) && ((ui8_assumed_motor_position) < (ui8_correction_at_angle + 4))) {
@@ -308,7 +331,7 @@ void motor_fast_loop(void) {
 		//ui8_variableDebugA = ui8_assumed_motor_position;
 		//ui8_variableDebugB = ui8_assumed_motor_position + ui8_position_correction_value - 127;
 
-		updateCorrection();
+		updateCorrection(reverse);
 	}
 
 
