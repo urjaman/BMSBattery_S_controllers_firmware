@@ -20,6 +20,7 @@
 #include "ACAcontrollerState.h"
 #include "ACAcommons.h"
 
+#define USE_FIELD_WEAKENING
 
 /* Local only */
 static uint8_t ui8_half_rotation_flag = 0;
@@ -56,8 +57,11 @@ static uint16_t BatteryCurrent;
 // Motor-> slow loop (_pre)
 static uint16_t motor_speed_erps;
 
+static int8_t motor_rotation_dir;
+
 // Direct from cruise_control.c
 volatile uint8_t motor_direction_reverse;
+
 
 #define HALL_REMAP(x) ((x&1) | ((x&2)<<1) | ((x&4) >> 1))
 
@@ -99,6 +103,8 @@ void hall_sensors_read_and_action(void) {
 			ui8_possible_motor_state = MOTOR_STATE_RUNNING_NO_INTERPOLATION;
 		}
 
+		uint8_t prev_pos = ui8_motor_rotor_hall_position;
+		
 		switch (hall_sensors) {
 			case 3://rotor position 180 degree
 				// full electric revolution recognized, update counters
@@ -169,11 +175,17 @@ void hall_sensors_read_and_action(void) {
 		//	ui8_possible_motor_state = MOTOR_STATE_RUNNING_NO_INTERPOLATION;
 			ui8_motor_rotor_hall_position -= 100;
 		}
+		
+		int8_t pos_diff = ui8_motor_rotor_hall_position - prev_pos;
+		if (abs(pos_diff) >  85) motor_rotation_dir = 0;
+		else if ((motor_rotation_dir > 0)&&(pos_diff < 0)) motor_rotation_dir = 0;
+		else if ((motor_rotation_dir < 0)&&(pos_diff > 0)) motor_rotation_dir = 0;
+		else if ((motor_rotation_dir < 6)&&(pos_diff > 0)) motor_rotation_dir++;
+		else if ((motor_rotation_dir > -6)&&(pos_diff < 0)) motor_rotation_dir--;
 
 	}
 }
 
-//#define USE_FIELD_WEAKENING
 
 /* Slow loop -> ISR communication for field weakening */
 #ifdef USE_FIELD_WEAKENING
@@ -369,12 +381,7 @@ void watchdog_init(void) {
 //#include "ACAcommons.h"
 
 
-// The concept here is loaned from linux; except that SDCC doesnt do typeof(x), so we need one per width.
-#define READ_ONCE_U16(x)	(*(const volatile uint16_t *)&(x))
-#define WRITE_ONCE_U16(x, val)						\
-do {									\
-	*(volatile uint16_t *)&(x) = (val);				\
-} while (0)
+
 
 /* Communicate between "fast loop" (ISR) and rest of the system. */
 
