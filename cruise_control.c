@@ -15,9 +15,12 @@
 #define USE_CRUISE_REVERSE
 
 static uint16_t cruise_control_speed = 0;
-
+static uint16_t cc_domain_spd;
 void cruise_control_init(void) {
-	; // we used to have something to init ...
+
+	// TODO: Transform the codebase from /100 to /256 (or another simple shift...)
+	cc_domain_spd = ((ui16_speed_kph_to_erps_ratio * 3) + 50) / 100;
+
 }
 
 static int16_t ccthr_i;
@@ -26,7 +29,18 @@ uint8_t cruise_control_enabled(void) {
 	return !!cruise_control_speed;
 }
 
+uint8_t cruise_control_regen(uint16_t erps) {
+	uint8_t PAS = PAS_is_active && (ui16_time_ticks_for_pas_calculation < timeout);
+	if (!cruise_control_speed) return 0;
+	if ((ui16_momentary_throttle) || (PAS)) return 0;
+	int16_t extra_speed = erps - (cruise_control_speed + cc_domain_spd);
+	if (extra_speed < 0) return 0;
+	if (extra_speed > cc_domain_spd) return 100;
+	return (extra_speed * 100) / cc_domain_spd;
+}
+
 uint16_t cruise_control_throttle(uint16_t erps) {
+	const int16_t max_val = 0x3FC0;
 	/* CC Off? Quick exit. */
 	if (!cruise_control_speed) {
 		ccthr_i = 0;
@@ -34,13 +48,24 @@ uint16_t cruise_control_throttle(uint16_t erps) {
 	}
 
 	int16_t erp_delta = cruise_control_speed - erps;
-	// bits: 2 sign, overflow; 10 output, 4 internal fraction.
-	int16_t ccthr = erp_delta * 5; // 0.25 (p, and then pi)
 
-	ccthr_i += (erp_delta * 3); // 0.125
-	if (ccthr_i > 0x3FC0) {
+	if (erp_delta > cc_domain_spd) {
+		ccthr_i = max_val;
+		return max_val >> 4;
+	}
+
+	if (erp_delta < -cc_domain_spd) {
+		ccthr_i = 0;
+		return 0;
+	}
+
+	// bits: 2 sign, overflow; 10 output, 4 internal fraction.
+	int16_t ccthr = erp_delta * 7; // /16 (p, and then pi)
+
+	ccthr_i += (erp_delta * 2); // /16
+	if (ccthr_i > max_val) {
 		//printf("ih\r\n");
-		ccthr_i = 0x3FC0;
+		ccthr_i = max_val;
 	}
 	if (ccthr_i < 0) {
 //		printf("iL\r\n");
@@ -52,9 +77,9 @@ uint16_t cruise_control_throttle(uint16_t erps) {
 //		printf("rL\r\n");
 		ccthr = 0;
 	}
-	if (ccthr > 0x3FC0) {
+	if (ccthr > max_val) {
 		//printf("rH\r\n");
-		ccthr = 0x3FC0;
+		ccthr = max_val;
 	}
 	return ccthr >> 4;
 }

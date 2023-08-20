@@ -14,4 +14,6 @@ void stop_cruise_control (void);
 void cruise_control_update(void);
 uint8_t cruise_control_enabled(void);
 
+uint8_t cruise_control_regen(uint16_t erps);
+
 #endif /* _CRUISE_CONTROL_H */

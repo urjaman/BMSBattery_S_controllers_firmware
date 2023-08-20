@@ -102,6 +102,8 @@ void aca_setpoint_init(void) {
 uint16_t aca_setpoint(uint16_t ui16_time_ticks_between_pas_interrupt, uint16_t setpoint_old) {
 	uint8_t without_pas = ui16_time_ticks_for_pas_calculation > timeout || !PAS_is_active;
 	if (!cruise_control_enabled()) without_pas = 1;
+	uint8_t cc_regen;
+
 
 	// select virtual erps speed based on speedsensor type
 	if (((ui16_aca_flags & EXTERNAL_SPEED_SENSOR) == EXTERNAL_SPEED_SENSOR)) {
@@ -166,22 +168,29 @@ uint16_t aca_setpoint(uint16_t ui16_time_ticks_between_pas_interrupt, uint16_t s
 	}
 	ui16_time_ticks_between_pas_interrupt_smoothed = ui32_time_ticks_between_pas_interrupt_accumulated >> 3;
 
+	cc_regen = cruise_control_regen(ui16_virtual_erps_speed);
+
 	// check for brake --> set regen current
-	if (brake_is_set()) {
+	if (brake_is_set() || cc_regen) {
 
 		controll_state_temp = 255;
 		//Current target based on regen assist level
-		if ((ui16_aca_flags & DIGITAL_REGEN) == DIGITAL_REGEN) {
+		if (brake_is_set()) {
+			if ((ui16_aca_flags & DIGITAL_REGEN) == DIGITAL_REGEN) {
 
-			//ui8_temp = ui8_a_s_assistlevels[ui8_assistlevel_global >> 4];
-			ui8_temp = 100.0;
-			controll_state_temp -= 1;
+				//ui8_temp = ui8_a_s_assistlevels[ui8_assistlevel_global >> 4];
+				ui8_temp = 100;
+				controll_state_temp -= 1;
 
-			//Current target based on linear input on pad X4
+				//Current target based on linear input on pad X4
+			} else {
+				ui8_temp = map(ui16_x4_value >> 2, ui8_throttle_min_range, ui8_throttle_max_range, 0, 100); //map regen throttle to limits
+				controll_state_temp -= 2;
+			}
 		} else {
-			ui8_temp = map(ui16_x4_value >> 2, ui8_throttle_min_range, ui8_throttle_max_range, 0, 100); //map regen throttle to limits
-			controll_state_temp -= 2;
+			ui8_temp = cc_regen;
 		}
+
 		float_temp = (float) ui8_temp * (float) (ui16_regen_current_max_value) / 100.0;
 
 		//Current target gets ramped down with speed
