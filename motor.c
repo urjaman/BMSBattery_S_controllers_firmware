@@ -16,6 +16,7 @@
 #include "pwm.h"
 #include "config.h"
 #include "adc.h"
+#include "isrcom.h"
 
 #include "ACAcontrollerState.h"
 #include "ACAcommons.h"
@@ -176,13 +177,14 @@ void hall_sensors_read_and_action(void) {
 			ui8_motor_rotor_hall_position -= 100;
 		}
 		
+#if 0
 		int8_t pos_diff = ui8_motor_rotor_hall_position - prev_pos;
 		if (abs(pos_diff) >  85) motor_rotation_dir = 0;
 		else if ((motor_rotation_dir > 0)&&(pos_diff < 0)) motor_rotation_dir = 0;
 		else if ((motor_rotation_dir < 0)&&(pos_diff > 0)) motor_rotation_dir = 0;
 		else if ((motor_rotation_dir < 6)&&(pos_diff > 0)) motor_rotation_dir++;
 		else if ((motor_rotation_dir > -6)&&(pos_diff < 0)) motor_rotation_dir--;
-
+#endif
 	}
 }
 
@@ -393,7 +395,7 @@ void motor_slow_update_pre(void) {
 
 void motor_slow_update_post(void) {
 #ifdef USE_FIELD_WEAKENING
-#define FIELD_WEAK_MIN_SPEED 90
+#define FIELD_WEAK_MIN_SPEED 70
 #define FIELD_WEAK_MAX_CURR 40
 #define FIELD_WEAK_MAX_ANGLE 15
 	const uint8_t default_curr_target = 126;
