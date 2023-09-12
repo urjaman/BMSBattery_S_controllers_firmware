@@ -286,22 +286,21 @@ uint16_t aca_setpoint(uint16_t ui16_time_ticks_between_pas_interrupt, uint16_t s
 
 		}
 
-		if (cruise_control_enabled()) {
-			float cc_throttle = ((float)cruise_control_throttle(ui16_virtual_erps_speed)) / 4.0;
-			if (cc_throttle > float_temp) float_temp = cc_throttle;
-		}
-
 		// map curret target to assist level, not to maximum value
 		if ((ui16_aca_flags & ASSIST_LVL_AFFECTS_THROTTLE) == ASSIST_LVL_AFFECTS_THROTTLE) {
 			float_temp *= ((float) ui8_assist_percent_actual / 100.0);
 			controll_state_temp += 8;
 		}
 
+		if (cruise_control_enabled()) {
+			float cc_throttle = ((float)cruise_control_throttle(ui16_virtual_erps_speed)) / 4.0;
+			if (cc_throttle > float_temp) float_temp = cc_throttle;
+		}
+
 		float_temp = float_temp * (float) (ui16_battery_current_max_value) / 255.0 + (float) ui16_current_cal_b; //calculate current target
 
 
 		if ((uint32_t) float_temp > uint32_current_target) {
-
 				//override current target with throttle
 				uint32_current_target = (uint32_t) float_temp;
 

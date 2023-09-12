@@ -15,7 +15,11 @@
 #define USE_CRUISE_REVERSE
 
 static uint16_t cruise_control_speed = 0;
-static uint16_t cc_domain_spd;
+static int16_t cc_domain_spd;
+
+uint16_t cruise_status_flags = 0;
+int16_t cruise_last_delta;
+
 void cruise_control_init(void) {
 
 	// TODO: Transform the codebase from /100 to /256 (or another simple shift...)
@@ -42,45 +46,86 @@ uint8_t cruise_control_regen(uint16_t erps) {
 uint16_t cruise_control_throttle(uint16_t erps) {
 	const int16_t max_val = 0x3FC0;
 	/* CC Off? Quick exit. */
+	cruise_status_flags = 0;
 	if (!cruise_control_speed) {
 		ccthr_i = 0;
 		return 0;
 	}
 
-	int16_t erp_delta = cruise_control_speed - erps;
+	cruise_status_flags |= 1;
 
+	int16_t erp_delta = cruise_control_speed - erps;
+	cruise_last_delta = erp_delta;
+
+	// hard clamp underspeed
 	if (erp_delta > cc_domain_spd) {
+		cruise_status_flags |= 2;
 		ccthr_i = max_val;
 		return max_val >> 4;
 	}
 
+	// hard clamp overspeed
 	if (erp_delta < -cc_domain_spd) {
+		cruise_status_flags |= 4;
 		ccthr_i = 0;
 		return 0;
 	}
 
+	// PI controller
 	// bits: 2 sign, overflow; 10 output, 4 internal fraction.
-	int16_t ccthr = erp_delta * 7; // /16 (p, and then pi)
+	int16_t ccthr = erp_delta * 256; // /16 (p, and then pi)
 
-	ccthr_i += (erp_delta * 2); // /16
+	ccthr_i += (erp_delta * 10); // /16
+
+	// overflow limiting
 	if (ccthr_i > max_val) {
 		//printf("ih\r\n");
 		ccthr_i = max_val;
+		cruise_status_flags |= 0x10;
+
 	}
 	if (ccthr_i < 0) {
 //		printf("iL\r\n");
 		ccthr_i = 0;
+		cruise_status_flags |= 0x20;
 	}
-
+	// p+i
 	ccthr += ccthr_i;
 	if (ccthr < 0) {
 //		printf("rL\r\n");
 		ccthr = 0;
+		cruise_status_flags |= 0x40;
 	}
 	if (ccthr > max_val) {
 		//printf("rH\r\n");
 		ccthr = max_val;
+		cruise_status_flags |= 0x80;
 	}
+#if 1
+	// soft clamp going too slow
+	if (erp_delta > (cc_domain_spd/2)) {
+		int32_t excess = erp_delta - cc_domain_spd/2;
+		int16_t minthr = (excess * max_val) / (cc_domain_spd/2);
+		cruise_status_flags |= 0x0100;
+		if (ccthr < minthr) {
+			ccthr_i = minthr;
+			ccthr = minthr;
+			cruise_status_flags |= 0x0200;
+		}
+	}
+	// soft clamp going too fast
+	if (erp_delta < -(cc_domain_spd/2)) {
+		int32_t excess = erp_delta - (-(cc_domain_spd/2));
+		int16_t maxthr = max_val - ((excess * max_val) / (-(cc_domain_spd/2)));
+		cruise_status_flags |= 0x1000;
+		if (ccthr > maxthr) {
+			ccthr_i = maxthr;
+			ccthr = maxthr;
+			cruise_status_flags |= 0x2000;
+		}
+	}
+#endif
+
 	return ccthr >> 4;
 }
 

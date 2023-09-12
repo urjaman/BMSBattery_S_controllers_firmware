@@ -14,6 +14,11 @@ void stop_cruise_control (void);
 void cruise_control_update(void);
 uint8_t cruise_control_enabled(void);
 
+
 uint8_t cruise_control_regen(uint16_t erps);
+
+// flags for debug from the cruise controller
+extern uint16_t cruise_status_flags;
+extern int16_t cruise_last_delta;
 
 #endif /* _CRUISE_CONTROL_H */
