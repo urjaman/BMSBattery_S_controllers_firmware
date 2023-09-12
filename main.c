@@ -89,10 +89,15 @@ void UART2_IRQHandler(void) __interrupt(UART2_IRQHANDLER);
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
+#if 0
 volatile int32_t test_value = -15000;
+#endif
 
 extern int8_t hall_sensors;
 #define F_SETPT 0
+
+int accel_state = 0;
+int accel_record = 0;
 
 int main(void) {
 #if F_SETPT
@@ -148,9 +153,9 @@ int main(void) {
 	printf("System initialized\r\n");
 #endif
 
-	int32_t test_result = test_value * 100;
 
 #if 0
+	int32_t test_result = test_value * 100;
 	printf("test_result = %04X trh=%04X\n", (uint16_t)test_result, (uint16_t)(((uint32_t)test_result) >> 16));
 
 		printf("%03d %03d %03d %03d %03d %03d\r\n",
@@ -196,6 +201,19 @@ int main(void) {
 
 			//pwm_set_duty_cycle ((uint8_t)ui16_sum_throttle);
 
+			if (ui16_motor_speed_erps < 10) {
+				accel_state = 0;
+			}
+			if ((ui16_motor_speed_erps >= 10) && (
+				ui16_motor_speed_erps < 50)) {
+				accel_state++;
+			}
+			if ((accel_state > 100) && (ui16_motor_speed_erps >= 50)) {
+				accel_record = accel_state;
+				accel_state = 0;
+			}
+
+
 			/****************************************************************************/
 			//very slow loop for communication
 			if (ui8_veryslowloop_counter > 5) {
@@ -211,23 +229,28 @@ int main(void) {
 #ifdef DIAGNOSTICS
 
 #if 1
-				printf("C%04X BC%03d/%03d "
+				printf("C%04X CR%04X BC%03d/%03d "
 				//"PAS%u-%05u "
 				"S%u SP%03d "
-				"MA%03d "
+//				"MA%03d "
 				"PCV%d "
-				"IQ%04d"
+				"IQ%04d "
+				"CA%03d "
+				//"AR%d "
 				//"B%u"
 				"\r\n",
 				ui16_control_state,
+				cruise_status_flags,
 				(int)(ui16_BatteryCurrent - ui16_current_cal_b),
 				(int)(uint32_current_target - ui16_current_cal_b),
 //				PAS_is_active, ui16_time_ticks_between_pas_interrupt,
 				ui16_motor_speed_erps,
 				ui16_setpoint,
-				ui8_s_motor_angle,
+//				ui8_s_motor_angle,
 				ui8_position_correction_value,
-				ui16_ADC_iq_current
+				ui16_ADC_iq_current,
+				ui8_correction_at_angle
+				//accel_record
 				//ui8_BatteryVoltage
 				);
 #endif
@@ -261,6 +284,8 @@ int main(void) {
 				//	printf("CH:%02X\r\n", ch);
 					if (ch == 'x') ui8_s_motor_angle++;
 					if (ch == 'z') ui8_s_motor_angle--;
+					if (ch == 'd') ui8_correction_at_angle++;
+					if (ch == 'f') ui8_correction_at_angle--;
 #if 0
 					if (ch == 'a') f_setpt--;
 					if (ch == 's') f_setpt += 5;
