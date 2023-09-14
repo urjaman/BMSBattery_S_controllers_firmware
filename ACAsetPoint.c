@@ -318,23 +318,29 @@ uint16_t aca_setpoint(uint16_t ui16_time_ticks_between_pas_interrupt, uint16_t s
 			uint32_current_target = ui16_battery_current_max_value + ui16_current_cal_b;
 			controll_state_temp += 64;
 		}
+
+
+		// control power instead of current
+		if ((ui16_aca_flags & POWER_BASED_CONTROL) == POWER_BASED_CONTROL) {
+			uint16_t positive_current = uint32_current_target - ui16_current_cal_b;
+			// Using 75% full current - 39V for a 30 - 42V system - as the "nominal power" point
+			int16_t nom_voltage = (((ui8_s_battery_voltage_max - ui8_s_battery_voltage_min) * 3) >> 2)
+				+ ui8_s_battery_voltage_min;
+
+			positive_current = ((uint32_t)positive_current * (uint32_t)nom_voltage)/ui8_BatteryVoltage;
+			// Explicitly limiting the current target at lower voltages to the max phase current
+			if (positive_current > PHASE_CURRENT_MAX_VALUE) positive_current = PHASE_CURRENT_MAX_VALUE;
+			// convert result back to cal_b offset form
+			uint32_current_target = positive_current + ui16_current_cal_b;
+		}
+
+
 		//phase current limiting
 		if (setpoint_old > 0 && (uint32_current_target - ui16_current_cal_b)*255 / setpoint_old > PHASE_CURRENT_MAX_VALUE) { // limit phase current according to Phase Current = battery current/duty cycle
 			uint32_current_target = (PHASE_CURRENT_MAX_VALUE) * setpoint_old / 255 + ui16_current_cal_b;
 			controll_state_temp += 128;
 		}
 
-#if 0
-		// control power instead of current
-		if ((ui16_aca_flags & POWER_BASED_CONTROL) == POWER_BASED_CONTROL) {
-			uint16_t positive_current = uint32_current_target - ui16_current_cal_b;
-			// nominal voltage based on limits
-			ui8_temp = ((ui8_s_battery_voltage_max - ui8_s_battery_voltage_min)>>1)+ui8_s_battery_voltage_min;
-			positive_current = ((uint32_t)positive_current * (uint32_t)ui8_temp)/ui8_BatteryVoltage;
-			if (positive_current > ui16_battery_current_max_value) positive_current = ui16_battery_current_max_value;
-			uint32_current_target = positive_current + ui16_current_cal_b;
-		}
-#endif
 
 		if ((ui16_aca_experimental_flags & DC_STATIC_ZERO) == DC_STATIC_ZERO) {
 			ui32_dutycycle = 0;
